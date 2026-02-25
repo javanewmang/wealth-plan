@@ -8,7 +8,9 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -45,6 +47,10 @@ class WatchRuleControllerTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].symbol").value("600519"));
+
+        mockMvc.perform(get("/api/watch-rules/alerts").param("limit", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].symbol").value("600519"));
     }
 
     @Test
@@ -62,6 +68,40 @@ class WatchRuleControllerTest {
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("VALIDATION_ERROR"));
+    }
+
+
+    @Test
+    void shouldUpdateRule() throws Exception {
+        String body = mockMvc.perform(post("/api/watch-rules")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "symbol": "000001",
+                                  "triggerType": "PRICE_ABOVE",
+                                  "threshold": 10,
+                                  "notifyChannel": "APP_PUSH",
+                                  "coolDownSeconds": 10
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String id = body.replaceAll(".*\"id\":\"([^\"]+)\".*", "$1");
+
+        mockMvc.perform(put("/api/watch-rules/" + id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "triggerType": "PRICE_BELOW",
+                                  "threshold": 9.5,
+                                  "notifyChannel": "EMAIL",
+                                  "coolDownSeconds": 120
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.triggerType").value("PRICE_BELOW"))
+                .andExpect(jsonPath("$.notifyChannel").value("EMAIL"));
     }
 
     @Test

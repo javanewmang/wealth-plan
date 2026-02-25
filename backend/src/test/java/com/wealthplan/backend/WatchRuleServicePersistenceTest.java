@@ -1,27 +1,41 @@
 package com.wealthplan.backend;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wealthplan.backend.model.CreateWatchRuleRequest;
 import com.wealthplan.backend.model.MarketTick;
 import com.wealthplan.backend.model.WatchRule;
+import com.wealthplan.backend.service.AlertHistoryService;
 import com.wealthplan.backend.service.WatchRuleService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.math.BigDecimal;
-import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+@SpringBootTest
 class WatchRuleServicePersistenceTest {
 
-    @Test
-    void shouldPersistAndReloadRules(@TempDir Path tempDir) {
-        Path file = tempDir.resolve("watch-rules.json");
+    @Autowired
+    private WatchRuleService watchRuleService;
 
-        WatchRuleService service1 = new WatchRuleService(new ObjectMapper(), file.toString());
-        service1.loadRules();
-        service1.createRule(new CreateWatchRuleRequest(
+    @Autowired
+    private AlertHistoryService alertHistoryService;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @BeforeEach
+    void clean() {
+        jdbcTemplate.update("DELETE FROM alert_events");
+        jdbcTemplate.update("DELETE FROM watch_rules");
+    }
+
+    @Test
+    void shouldPersistAndQueryAlerts() {
+        watchRuleService.createRule(new CreateWatchRuleRequest(
                 "600519",
                 WatchRule.TriggerType.PRICE_BELOW,
                 new BigDecimal("1600"),
@@ -29,11 +43,9 @@ class WatchRuleServicePersistenceTest {
                 300
         ));
 
-        WatchRuleService service2 = new WatchRuleService(new ObjectMapper(), file.toString());
-        service2.loadRules();
-
-        assertEquals(1, service2.listRules().size());
-        assertEquals(1, service2.evaluateTick(new MarketTick("600519", new BigDecimal("1590"))).size());
-        assertEquals(0, service2.evaluateTick(new MarketTick("600519", new BigDecimal("1590"))).size());
+        assertEquals(1, watchRuleService.listRules().size());
+        assertEquals(1, watchRuleService.evaluateTick(new MarketTick("600519", new BigDecimal("1590"))).size());
+        assertEquals(0, watchRuleService.evaluateTick(new MarketTick("600519", new BigDecimal("1590"))).size());
+        assertEquals(1, alertHistoryService.listRecent(20).size());
     }
 }
