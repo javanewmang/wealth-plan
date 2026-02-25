@@ -13,6 +13,7 @@ import java.util.regex.Pattern;
 public class OpenClawCommandService {
     private static final Pattern BELOW_PATTERN = Pattern.compile("盯住?(\\d{6}).*跌破\\s*(\\d+(?:\\.\\d+)?)");
     private static final Pattern ABOVE_PATTERN = Pattern.compile("盯住?(\\d{6}).*(突破|涨到|高于)\\s*(\\d+(?:\\.\\d+)?)");
+    private static final int DEFAULT_COOL_DOWN_SECONDS = 300;
 
     private final WatchRuleService watchRuleService;
 
@@ -27,7 +28,8 @@ public class OpenClawCommandService {
                     below.group(1),
                     WatchRule.TriggerType.PRICE_BELOW,
                     new BigDecimal(below.group(2)),
-                    "APP_PUSH"
+                    WatchRule.NotifyChannel.APP_PUSH,
+                    DEFAULT_COOL_DOWN_SECONDS
             ));
             return new AgentCommandResponse("CREATE_WATCH_RULE", rule, "已根据指令创建跌破提醒规则");
         }
@@ -38,7 +40,8 @@ public class OpenClawCommandService {
                     above.group(1),
                     WatchRule.TriggerType.PRICE_ABOVE,
                     new BigDecimal(above.group(3)),
-                    "APP_PUSH"
+                    WatchRule.NotifyChannel.APP_PUSH,
+                    DEFAULT_COOL_DOWN_SECONDS
             ));
             return new AgentCommandResponse("CREATE_WATCH_RULE", rule, "已根据指令创建突破提醒规则");
         }

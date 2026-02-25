@@ -1,23 +1,30 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { App, Button, Card, Form, Input, InputNumber, Layout, Radio, Space, Typography, message } from 'antd'
+import { App, Button, Card, Form, Input, InputNumber, Layout, Radio, Select, Space, Typography, message } from 'antd'
 import 'antd/dist/reset.css'
 
 const { Header, Content } = Layout
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+
+async function fetchJson(url, options) {
+  const response = await fetch(url, options)
+  const data = await response.json().catch(() => ({}))
+  return { response, data }
+}
 
 function WatchRulePage() {
   const [ruleForm] = Form.useForm()
   const [commandForm] = Form.useForm()
 
   const createRule = async (values) => {
-    const response = await fetch('http://localhost:8080/api/watch-rules', {
+    const { response, data } = await fetchJson(`${API_BASE_URL}/api/watch-rules`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(values)
     })
 
     if (!response.ok) {
-      message.error('创建盯盘规则失败')
+      message.error(data.message || '创建盯盘规则失败')
       return
     }
 
@@ -26,13 +33,12 @@ function WatchRulePage() {
   }
 
   const sendAgentCommand = async (values) => {
-    const response = await fetch('http://localhost:8080/api/agent/commands', {
+    const { response, data } = await fetchJson(`${API_BASE_URL}/api/agent/commands`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(values)
     })
 
-    const data = await response.json()
     if (!response.ok || data.parsedIntent === 'UNSUPPORTED') {
       message.warning(data.message || '指令执行失败')
       return
@@ -54,10 +60,14 @@ function WatchRulePage() {
               form={ruleForm}
               layout="vertical"
               onFinish={createRule}
-              initialValues={{ triggerType: 'PRICE_BELOW', notifyChannel: 'APP_PUSH' }}
+              initialValues={{
+                triggerType: 'PRICE_BELOW',
+                notifyChannel: 'APP_PUSH',
+                coolDownSeconds: 300
+              }}
             >
-              <Form.Item name="symbol" label="股票代码" rules={[{ required: true, message: '请输入股票代码' }]}>
-                <Input placeholder="例如：600519" />
+              <Form.Item name="symbol" label="股票代码" rules={[{ required: true, message: '请输入6位股票代码' }, { pattern: /^\d{6}$/, message: '必须为6位数字代码' }]}>
+                <Input placeholder="例如：600519" maxLength={6} />
               </Form.Item>
               <Form.Item name="triggerType" label="触发类型" rules={[{ required: true }]}>
                 <Radio.Group>
@@ -71,7 +81,14 @@ function WatchRulePage() {
                 <InputNumber style={{ width: '100%' }} min={0.01} precision={2} />
               </Form.Item>
               <Form.Item name="notifyChannel" label="提醒渠道" rules={[{ required: true }]}>
-                <Input placeholder="APP_PUSH / EMAIL / IN_APP" />
+                <Select options={[
+                  { label: 'APP Push', value: 'APP_PUSH' },
+                  { label: '站内信', value: 'IN_APP' },
+                  { label: 'Email', value: 'EMAIL' }
+                ]} />
+              </Form.Item>
+              <Form.Item name="coolDownSeconds" label="静默时长（秒）" rules={[{ required: true, message: '请输入静默时长' }]}>
+                <InputNumber style={{ width: '100%' }} min={0} max={3600} precision={0} />
               </Form.Item>
               <Button type="primary" htmlType="submit">创建规则</Button>
             </Form>
